@@ -8,7 +8,6 @@ export default function Game({ player, onExit }) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // 🍪 Handle cookie click
   const handleClick = async () => {
     const newCount = cookies + 1;
     setCookies(newCount);
@@ -22,7 +21,6 @@ export default function Game({ player, onExit }) {
     }
   };
 
-  // 🏆 Load leaderboard
   const fetchLeaderboard = async () => {
     try {
       const res = await api.get("/leaderboard");
@@ -32,7 +30,6 @@ export default function Game({ player, onExit }) {
     }
   };
 
-  // 🧩 Load upgrades
   const fetchUpgrades = async () => {
     try {
       const res = await api.get("/upgrades", {
@@ -44,7 +41,6 @@ export default function Game({ player, onExit }) {
     }
   };
 
-  // 🛒 Buy upgrade
   const handleBuyUpgrade = async (id) => {
     try {
       const res = await api.post("/buy-upgrade", {
@@ -54,7 +50,7 @@ export default function Game({ player, onExit }) {
 
       if (res.data.ok) {
         alert("✅ Upgrade purchased!");
-        // Reload both player cookies and upgrades
+  
         await fetchUpgrades();
         await fetchLeaderboard();
         const playerRes = await api.post("/auth/login", { username: player.username });
@@ -65,7 +61,6 @@ export default function Game({ player, onExit }) {
     }
   };
 
-  // 🔄 Initial load
   useEffect(() => {
     (async () => {
       await fetchLeaderboard();
@@ -81,13 +76,15 @@ export default function Game({ player, onExit }) {
       <h2>Welcome, {player.username}!</h2>
       <h3>Cookies: {cookies}</h3>
 
-      {/* 🍪 Cookie Button */}
+      
       <button
+        className="cookie-button"
+        
         style={{
           width: "150px",
           height: "150px",
           borderRadius: "50%",
-          backgroundColor: "#c99700",
+          backgroundColor: "#853d13ff",
           color: "white",
           fontSize: "1.2rem",
           cursor: "pointer",
@@ -95,10 +92,9 @@ export default function Game({ player, onExit }) {
         onClick={handleClick}
         disabled={saving}
       >
-        {saving ? "Saving..." : "🍪 Click Me!"}
+        {saving ? "" : " Click Me!"}
       </button>
 
-      {/* 🔁 Refresh + Exit Buttons */}
       <div style={{ marginTop: "1.5rem" }}>
         <button onClick={fetchLeaderboard}>🔁 Refresh Leaderboard</button>
         <button
@@ -109,7 +105,6 @@ export default function Game({ player, onExit }) {
         </button>
       </div>
 
-      {/* 🏆 Leaderboard */}
       <div style={{ marginTop: "2rem" }}>
         <h3>Leaderboard</h3>
         <ol style={{ textAlign: "left", display: "inline-block" }}>
@@ -121,7 +116,6 @@ export default function Game({ player, onExit }) {
         </ol>
       </div>
 
-      {/* 🧩 Upgrades Section */}
       <div style={{ marginTop: "2rem" }}>
         <h3>Upgrades</h3>
         {upgrades.length === 0 ? (

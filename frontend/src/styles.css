@@ -1,44 +1,165 @@
 body {
-  font-family: Arial, sans-serif;
-  background: #f7f7ff;
+  font-family: 'Poppins', system-ui, sans-serif;
+  background: radial-gradient(circle at center, #2a2a72 0%, #009ffd 100%);
+  color: #fff;
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: flex-start;
-  padding: 2rem;
+  align-items: center;
 }
 
-.card {
-  background: white;
-  padding: 2rem;
-  border-radius: 12px;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-  width: 400px;
+.container {
+  max-width: 700px;
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  padding: 2rem 3rem;
+  border-radius: 20px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
   text-align: center;
-  margin-bottom: 2rem;
 }
 
-input {
-  padding: 8px;
-  font-size: 16px;
-  margin-right: 10px;
+h1, h2, h3 {
+  font-weight: 600;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.3);
+}
+
+h1 {
+  font-size: 2.4rem;
+  margin-bottom: 1rem;
+}
+
+.cookie-button {
+  width: 300px;
+  height: 300px;
+  border-radius: 50%;
+  border: none;
+  background-image: url("/cookie.png");
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  cursor: pointer;
+  box-shadow: 0 0 40px rgba(255, 220, 100, 0.4),
+              inset 0 0 15px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease, box-shadow 0.3s ease;
+}
+
+.cookie-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 60px rgba(255, 200, 100, 0.6),
+              inset 0 0 10px rgba(255, 255, 255, 0.3);
+}
+
+.cookie-button:active {
+  transform: scale(0.94);
+  box-shadow: 0 0 20px rgba(255, 200, 100, 0.5),
+              inset 0 0 20px rgba(0, 0, 0, 0.4);
+}
+
+@keyframes sparkle {
+  0% {
+    transform: scale(1) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.cookie-button::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  opacity: 0;
+}
+
+.cookie-button:active::after {
+  animation: sparkle 0.3s ease;
+  opacity: 1;
+}
+
+
+.cookie-bg {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.cookie {
+  position: absolute;
+  top: -50px;
+  text-shadow: 0 0 10px rgba(0,0,0,0.3);
+  animation: fall linear forwards;
+  filter: drop-shadow(0 0 10px rgba(255, 220, 150, 0.8));
+}
+.cookie::before {
+  content: "🍪";
+}
+
+@keyframes fall {
+  0% {
+    transform: translateY(-10vh) rotate(0deg);
+  }
+  100% {
+    transform: translateY(110vh) rotate(360deg);
+  }
 }
 
 button {
-  padding: 8px 14px;
-  font-size: 16px;
+  margin: 0.4rem;
+  padding: 0.6rem 1.2rem;
   border: none;
-  background: #6558f5;
-  color: white;
-  border-radius: 6px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #00c6ff, #0072ff);
+  color: #fff;
+  font-weight: 600;
   cursor: pointer;
+  transition: transform 0.2s ease, opacity 0.2s ease;
 }
 
 button:hover {
-  background: #4e45d3;
+  transform: translateY(-3px);
+  opacity: 0.9;
 }
 
-.big-btn {
-  font-size: 20px;
-  padding: 12px 24px;
-  margin: 10px 0;
+button:disabled {
+  background: #555;
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+ol, ul {
+  padding: 0;
+  list-style: none;
+}
+
+li {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  margin: 0.3rem 0;
+  padding: 0.5rem 0.8rem;
+  transition: background 0.3s;
+}
+
+li:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.upgrade-btn {
+  width: 100%;
+  text-align: left;
+  font-weight: 500;
+}
+
+@keyframes glow {
+  0%, 100% { box-shadow: 0 0 20px #ffd966; }
+  50% { box-shadow: 0 0 40px #ffef99; }
 }

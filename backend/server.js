@@ -59,17 +59,24 @@ app.post("/api/update", async (req, res) => {
 app.get("/api/leaderboard", async (req, res) => {
   try {
     const { data, error } = await supabase
-      .from("players")
-      .select("username, cookies")
+      .from("players") // <- make sure this matches your Supabase table name
+      .select("id, username, cookies")
       .order("cookies", { ascending: false })
       .limit(10);
-    if (error) throw error;
-    res.json({ ok: true, leaderboard: data });
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    console.log("✅ Sending leaderboard:", data);
+    res.json(data);
   } catch (err) {
-    console.error("❌ Leaderboard error:", err.message);
+    console.error("Leaderboard error:", err);
     res.status(500).json({ error: "Failed to load leaderboard" });
   }
 });
+
 
 /* --- UPGRADES --- */
 app.get("/api/upgrades", async (req, res) => {

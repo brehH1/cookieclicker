@@ -163,3 +163,97 @@ li:hover {
   0%, 100% { box-shadow: 0 0 20px #ffd966; }
   50% { box-shadow: 0 0 40px #ffef99; }
 }
+
+.menu-container {
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 2rem;
+  margin-top: 5rem;
+}
+
+.menu-left {
+  width: 280px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 0 25px rgba(0, 0, 0, 0.2);
+  padding: 1.5rem;
+  color: white;
+  backdrop-filter: blur(12px);
+  text-align: left;
+}
+
+.menu-left h2 {
+  text-align: center;
+  margin-bottom: 1rem;
+  font-size: 1.4rem;
+  color: #ffcc66;
+}
+
+.leaderboard-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.leaderboard-list li {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.4rem 0.2rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+  font-size: 0.95rem;
+}
+
+.leaderboard-list li span:first-child {
+  color: #fff;
+  font-weight: 500;
+}
+
+.leaderboard-list li span:last-child {
+  color: #ffcc66;
+  font-weight: 600;
+}
+
+.menu-center {
+  background: rgba(255, 255, 255, 0.12);
+  padding: 2.5rem;
+  border-radius: 20px;
+  box-shadow: 0 0 40px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  color: white;
+  width: 360px;
+}
+
+.menu-center h1 {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.6);
+}
+
+.login-form {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.login-form input {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: none;
+  outline: none;
+}
+
+.login-form button {
+  background: linear-gradient(135deg, #007bff, #00aaff);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.login-form button:hover {
+  transform: scale(1.05);
+}

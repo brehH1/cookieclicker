@@ -13,7 +13,11 @@ export default function Game({ player, onExit }) {
     setCookies(newCount);
     try {
       setSaving(true);
-      await api.post("/update", { username: player.username, cookies: newCount });
+      await api.post("/update", {
+        username: player.username,
+        cookies: newCount,
+      });
+      await fetchLeaderboard(); 
     } catch (err) {
       console.error("❌ Failed to update cookies:", err);
     } finally {
@@ -24,7 +28,12 @@ export default function Game({ player, onExit }) {
   const fetchLeaderboard = async () => {
     try {
       const res = await api.get("/leaderboard");
-      if (res.data.ok) setLeaderboard(res.data.leaderboard);
+      console.log("📊 Leaderboard data:", res.data);
+      if (Array.isArray(res.data)) {
+        setLeaderboard(res.data);
+      } else {
+        console.warn("Unexpected leaderboard format:", res.data);
+      }
     } catch (err) {
       console.error("❌ Failed to load leaderboard:", err);
     }
@@ -35,7 +44,9 @@ export default function Game({ player, onExit }) {
       const res = await api.get("/upgrades", {
         params: { username: player.username },
       });
-      if (res.data.ok) setUpgrades(res.data.upgrades);
+      if (res.data.ok && res.data.upgrades) {
+        setUpgrades(res.data.upgrades);
+      }
     } catch (err) {
       console.error("❌ Failed to load upgrades:", err);
     }
@@ -50,10 +61,11 @@ export default function Game({ player, onExit }) {
 
       if (res.data.ok) {
         alert("✅ Upgrade purchased!");
-  
         await fetchUpgrades();
         await fetchLeaderboard();
-        const playerRes = await api.post("/auth/login", { username: player.username });
+        const playerRes = await api.post("/auth/login", {
+          username: player.username,
+        });
         setCookies(playerRes.data.player.cookies);
       }
     } catch (err) {
@@ -69,57 +81,71 @@ export default function Game({ player, onExit }) {
     })();
   }, []);
 
-  if (loading) return <p style={{ textAlign: "center" }}>Loading game...</p>;
+  if (loading) return <p style={{ textAlign: "center" }}>Ladataan peliä...</p>;
 
   return (
     <div className="card" style={{ textAlign: "center" }}>
-      <h2>Welcome, {player.username}!</h2>
+      <h2>Tervetuloa, {player.username}!</h2>
       <h3>Cookies: {cookies}</h3>
 
-      
       <button
         className="cookie-button"
-        
-        style={{
-          width: "150px",
-          height: "150px",
-          borderRadius: "50%",
-          backgroundColor: "#853d13ff",
-          color: "white",
-          fontSize: "1.2rem",
-          cursor: "pointer",
-        }}
         onClick={handleClick}
         disabled={saving}
+        style={{
+          width: "200px",
+          height: "200px",
+          borderRadius: "50%",
+          border: "none",
+          backgroundImage: "url('/cookie.png')",
+          backgroundSize: "cover",
+          backgroundPosition: "center",
+          cursor: "pointer",
+          margin: "1rem 0",
+        }}
       >
-        {saving ? "" : " Click Me!"}
+        {!saving && "Klikkaa!"}
       </button>
 
-      <div style={{ marginTop: "1.5rem" }}>
-        <button onClick={fetchLeaderboard}>🔁 Refresh Leaderboard</button>
+      <div style={{ marginTop: "1rem" }}>
+        <button onClick={fetchLeaderboard}>🔁 Reloadaa tulokset</button>
         <button
           style={{ marginLeft: "1rem", backgroundColor: "#ff4444" }}
           onClick={onExit}
         >
-          🚪 Exit
+          🚪 Poistu
         </button>
       </div>
 
+     
       <div style={{ marginTop: "2rem" }}>
-        <h3>Leaderboard</h3>
-        <ol style={{ textAlign: "left", display: "inline-block" }}>
-          {leaderboard.map((entry, i) => (
-            <li key={i}>
-              {entry.username}: {entry.cookies}
-            </li>
-          ))}
-        </ol>
+        <h3>Tulokset</h3>
+        {leaderboard.length > 0 ? (
+          <ol
+            style={{
+              textAlign: "left",
+              display: "inline-block",
+              width: "230px",
+              background: "rgba(255, 255, 255, 0.1)",
+              padding: "1rem",
+              borderRadius: "10px",
+            }}
+          >
+            {leaderboard.map((entry, i) => (
+              <li key={i}>
+                {i + 1}. {entry.username}: {entry.cookies}
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p>Ei pisteitä...</p>
+        )}
       </div>
 
       <div style={{ marginTop: "2rem" }}>
-        <h3>Upgrades</h3>
+        <h3>Päivitykset</h3>
         {upgrades.length === 0 ? (
-          <p>No upgrades available.</p>
+          <p>Ei päivityksiä avoinna.</p>
         ) : (
           <ul style={{ listStyle: "none", padding: 0 }}>
             {upgrades.map((upg) => (
@@ -136,7 +162,7 @@ export default function Game({ player, onExit }) {
                       : "#ccc",
                   }}
                 >
-                  {upg.name} — Cost: {upg.cost} cookies
+                  {upg.name} — Maksaa: {upg.cost} cookies
                   {upg.owned ? " ✅" : ""}
                 </button>
               </li>

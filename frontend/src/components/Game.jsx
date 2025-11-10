@@ -8,16 +8,42 @@ export default function Game({ player, onExit }) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const username = player.username;
+
+  // --- Hae leaderboard ---
+  const fetchLeaderboard = async () => {
+    try {
+      const res = await api.get("/leaderboard");
+      if (Array.isArray(res.data)) {
+        setLeaderboard(res.data);
+      } else {
+        console.warn("⚠️ Unexpected leaderboard format:", res.data);
+      }
+    } catch (err) {
+      console.error("❌ Leaderboard fetch failed:", err);
+    }
+  };
+
+  // --- Hae päivitykset ---
+  const fetchUpgrades = async () => {
+    try {
+      const res = await api.get("/upgrades", { params: { username } });
+      if (res.data.ok) {
+        setUpgrades(res.data.upgrades);
+      }
+    } catch (err) {
+      console.error("❌ Upgrades fetch failed:", err);
+    }
+  };
+
+  // --- Klikkauslogiikka ---
   const handleClick = async () => {
     const newCount = cookies + 1;
-    setCookies(newCount);
+    setCookies(newCount); // optimistinen UI-päivitys
     try {
       setSaving(true);
-      await api.post("/update", {
-        username: player.username,
-        cookies: newCount,
-      });
-      await fetchLeaderboard(); 
+      await api.post("/update", { username, cookies: newCount });
+      await fetchLeaderboard(); // päivitä tulokset heti
     } catch (err) {
       console.error("❌ Failed to update cookies:", err);
     } finally {
@@ -25,68 +51,38 @@ export default function Game({ player, onExit }) {
     }
   };
 
-  const fetchLeaderboard = async () => {
+  // --- Päivityksen osto ---
+  const handleBuyUpgrade = async (upgradeId) => {
     try {
-      const res = await api.get("/leaderboard");
-      console.log("📊 Leaderboard data:", res.data);
-      if (Array.isArray(res.data)) {
-        setLeaderboard(res.data);
-      } else {
-        console.warn("Unexpected leaderboard format:", res.data);
-      }
-    } catch (err) {
-      console.error("❌ Failed to load leaderboard:", err);
-    }
-  };
-
-  const fetchUpgrades = async () => {
-    try {
-      const res = await api.get("/upgrades", {
-        params: { username: player.username },
-      });
-      if (res.data.ok && res.data.upgrades) {
-        setUpgrades(res.data.upgrades);
-      }
-    } catch (err) {
-      console.error("❌ Failed to load upgrades:", err);
-    }
-  };
-
-  const handleBuyUpgrade = async (id) => {
-    try {
-      const res = await api.post("/buy-upgrade", {
-        username: player.username,
-        upgrade_id: id,
-      });
-
+      const res = await api.post("/buy-upgrade", { username, upgrade_id: upgradeId });
       if (res.data.ok) {
-        alert("✅ Upgrade purchased!");
+        alert("✅ Päivitys ostettu!");
         await fetchUpgrades();
         await fetchLeaderboard();
-        const playerRes = await api.post("/auth/login", {
-          username: player.username,
-        });
-        setCookies(playerRes.data.player.cookies);
+        const refreshed = await api.post("/auth/login", { username });
+        setCookies(refreshed.data.player.cookies);
       }
     } catch (err) {
-      alert(err.response?.data?.error || "❌ Purchase failed");
+      alert(err.response?.data?.error || "❌ Osto epäonnistui");
     }
   };
 
+  // --- Alustus ---
   useEffect(() => {
     (async () => {
-      await fetchLeaderboard();
-      await fetchUpgrades();
+      await Promise.all([fetchLeaderboard(), fetchUpgrades()]);
       setLoading(false);
     })();
   }, []);
 
-  if (loading) return <p style={{ textAlign: "center" }}>Ladataan peliä...</p>;
+  if (loading) {
+    return <p style={{ textAlign: "center" }}>Ladataan peliä...</p>;
+  }
 
   return (
     <div className="card" style={{ textAlign: "center" }}>
-      <h2>Tervetuloa, {player.username}!</h2>
-      <h3>Cookies: {cookies}</h3>
+      <h2>Tervetuloa, {username}!</h2>
+      <h3>Keksit: {cookies}</h3>
 
       <button
         className="cookie-button"
@@ -104,11 +100,11 @@ export default function Game({ player, onExit }) {
           margin: "1rem 0",
         }}
       >
-        {!saving && "Klikkaa!"}
+        {!saving && "🍪 Klikkaa!"}
       </button>
 
       <div style={{ marginTop: "1rem" }}>
-        <button onClick={fetchLeaderboard}>🔁 Reloadaa tulokset</button>
+        <button onClick={fetchLeaderboard}>🔁 Päivitä tulokset</button>
         <button
           style={{ marginLeft: "1rem", backgroundColor: "#ff4444" }}
           onClick={onExit}
@@ -117,7 +113,6 @@ export default function Game({ player, onExit }) {
         </button>
       </div>
 
-     
       <div style={{ marginTop: "2rem" }}>
         <h3>Tulokset</h3>
         {leaderboard.length > 0 ? (
@@ -138,36 +133,35 @@ export default function Game({ player, onExit }) {
             ))}
           </ol>
         ) : (
-          <p>Ei pisteitä...</p>
+          <p>Ei pisteitä vielä...</p>
         )}
       </div>
 
       <div style={{ marginTop: "2rem" }}>
         <h3>Päivitykset</h3>
-        {upgrades.length === 0 ? (
-          <p>Ei päivityksiä avoinna.</p>
-        ) : (
+        {upgrades.length > 0 ? (
           <ul style={{ listStyle: "none", padding: 0 }}>
-            {upgrades.map((upg) => (
-              <li key={upg.id}>
+            {upgrades.map((u) => (
+              <li key={u.id}>
                 <button
-                  onClick={() => handleBuyUpgrade(upg.id)}
-                  disabled={upg.owned || cookies < upg.cost}
+                  onClick={() => handleBuyUpgrade(u.id)}
+                  disabled={u.owned || cookies < u.cost}
                   style={{
                     margin: "0.3rem",
-                    backgroundColor: upg.owned
+                    backgroundColor: u.owned
                       ? "#777"
-                      : cookies >= upg.cost
+                      : cookies >= u.cost
                       ? "#4CAF50"
                       : "#ccc",
                   }}
                 >
-                  {upg.name} — Maksaa: {upg.cost} cookies
-                  {upg.owned ? " ✅" : ""}
+                  {u.name} — Hinta: {u.cost} {u.owned ? "✅" : ""}
                 </button>
               </li>
             ))}
           </ul>
+        ) : (
+          <p>Ei päivityksiä.</p>
         )}
       </div>
     </div>

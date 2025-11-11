@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import api from "../api";
+import MusicPlayer from "./MusicPlayer"; // ✅ Added
 
 export default function Game({ player, onExit }) {
   const [cookies, setCookies] = useState(player.cookies || 0);
@@ -39,11 +40,11 @@ export default function Game({ player, onExit }) {
   // --- Klikkauslogiikka ---
   const handleClick = async () => {
     const newCount = cookies + 1;
-    setCookies(newCount); // optimistinen UI-päivitys
+    setCookies(newCount);
     try {
       setSaving(true);
       await api.post("/update", { username, cookies: newCount });
-      await fetchLeaderboard(); // päivitä tulokset heti
+      await fetchLeaderboard();
     } catch (err) {
       console.error("❌ Failed to update cookies:", err);
     } finally {
@@ -81,6 +82,9 @@ export default function Game({ player, onExit }) {
 
   return (
     <div className="card" style={{ textAlign: "center" }}>
+      
+      <MusicPlayer />  {/* ✅ Only insertion */}
+
       <h2>Tervetuloa, {username}!</h2>
       <h3>Keksit: {cookies}</h3>
 

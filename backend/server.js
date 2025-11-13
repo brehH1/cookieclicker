@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3001;
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
+// LOGIN --------------------------------------------------
 app.post("/api/auth/login", async (req, res) => {
   const { username } = req.body;
   if (!username) return res.status(400).json({ error: "Username required" });
@@ -19,9 +20,7 @@ app.post("/api/auth/login", async (req, res) => {
       .eq("username", username)
       .single();
 
-    if (existing) {
-      return res.json({ ok: true, player: existing });
-    }
+    if (existing) return res.json({ ok: true, player: existing });
 
     const { data: inserted, error } = await supabase
       .from("players")
@@ -32,13 +31,15 @@ app.post("/api/auth/login", async (req, res) => {
     if (error) throw error;
     return res.json({ ok: true, player: inserted });
   } catch (err) {
-    console.error("❌ Login failed:", err.message);
+    console.error("Login failed:", err.message);
     return res.status(500).json({ error: "Login failed" });
   }
 });
 
+// BATCHED SCORE UPDATE -----------------------------------
 app.post("/api/update", async (req, res) => {
   const { username, cookies } = req.body;
+
   if (!username || typeof cookies !== "number") {
     return res.status(400).json({ error: "Invalid request" });
   }
@@ -48,15 +49,17 @@ app.post("/api/update", async (req, res) => {
       .from("players")
       .update({ cookies })
       .eq("username", username);
+
     if (error) throw error;
 
     return res.json({ ok: true });
   } catch (err) {
-    console.error("❌ Update failed:", err.message);
+    console.error("Update failed:", err.message);
     return res.status(500).json({ error: "Failed to update cookies" });
   }
 });
 
+// LEADERBOARD --------------------------------------------
 app.get("/api/leaderboard", async (_req, res) => {
   try {
     const { data, error } = await supabase
@@ -68,27 +71,28 @@ app.get("/api/leaderboard", async (_req, res) => {
     if (error) throw error;
     return res.json(data || []);
   } catch (err) {
-    console.error("❌ Leaderboard error:", err.message);
+    console.error("Leaderboard error:", err.message);
     return res.status(500).json({ error: "Failed to load leaderboard" });
   }
 });
 
+// UPGRADES ------------------------------------------------
 app.get("/api/upgrades", async (req, res) => {
   const { username } = req.query;
+
   try {
-    const { data: allUpgrades, error: upErr } = await supabase
+    const { data: allUpgrades } = await supabase
       .from("upgrades")
       .select("*")
       .order("cost", { ascending: true });
-    if (upErr) throw upErr;
 
-    const { data: owned, error: ownErr } = await supabase
+    const { data: owned } = await supabase
       .from("player_upgrades")
       .select("upgrade_id")
       .eq("username", username);
-    if (ownErr) throw ownErr;
 
     const ownedIds = (owned || []).map((o) => o.upgrade_id);
+
     const upgrades = (allUpgrades || []).map((u) => ({
       ...u,
       owned: ownedIds.includes(u.id),
@@ -96,31 +100,31 @@ app.get("/api/upgrades", async (req, res) => {
 
     return res.json({ ok: true, upgrades });
   } catch (err) {
-    console.error("❌ Fetch upgrades failed:", err.message);
+    console.error("Fetch upgrades failed:", err.message);
     return res.status(500).json({ error: "Failed to load upgrades" });
   }
 });
 
+// BUY UPGRADE --------------------------------------------
 app.post("/api/buy-upgrade", async (req, res) => {
   const { username, upgrade_id } = req.body;
+
   if (!username || !upgrade_id) {
     return res.status(400).json({ error: "Invalid request" });
   }
 
   try {
-    const { data: upgrade, error: upErr } = await supabase
+    const { data: upgrade } = await supabase
       .from("upgrades")
       .select("*")
       .eq("id", upgrade_id)
       .single();
-    if (upErr) throw upErr;
 
-    const { data: player, error: plErr } = await supabase
+    const { data: player } = await supabase
       .from("players")
       .select("*")
       .eq("username", username)
       .single();
-    if (plErr) throw plErr;
 
     if (player.cookies < upgrade.cost) {
       return res.status(400).json({ error: "Not enough cookies" });
@@ -135,7 +139,7 @@ app.post("/api/buy-upgrade", async (req, res) => {
 
     return res.json({ ok: true });
   } catch (err) {
-    console.error("❌ Buy upgrade failed:", err.message);
+    console.error("Buy upgrade failed:", err.message);
     return res.status(500).json({ error: "Failed to buy upgrade" });
   }
 });

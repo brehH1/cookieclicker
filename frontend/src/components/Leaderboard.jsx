@@ -9,7 +9,6 @@ export default function Leaderboard() {
       try {
         
         const res = await api.get("/leaderboard");
-
        
         if (Array.isArray(res.data)) {
           setLeaders(res.data);

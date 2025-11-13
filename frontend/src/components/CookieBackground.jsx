@@ -4,7 +4,6 @@ export default function CookieBackground() {
   useEffect(() => {
     const container = document.querySelector(".cookie-bg");
 
-    // Create 25 random flying cookies
     for (let i = 0; i < 25; i++) {
       const cookie = document.createElement("div");
       cookie.classList.add("cookie");
@@ -14,11 +13,9 @@ export default function CookieBackground() {
       cookie.style.fontSize = 24 + Math.random() * 24 + "px";
       container.appendChild(cookie);
 
-      // Remove cookies that finished animation
       cookie.addEventListener("animationend", () => cookie.remove());
     }
 
-    // Keep spawning cookies
     const interval = setInterval(() => {
       const cookie = document.createElement("div");
       cookie.classList.add("cookie");

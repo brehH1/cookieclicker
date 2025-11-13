@@ -7,9 +7,9 @@ body {
   min-height: 100vh;
   display: flex;
   justify-content: center;
-  align-items: flex-start; /* allow content to flow downward */
-  overflow-x: hidden; /* only hide horizontal overflow */
-  overflow-y: auto;   /* enable vertical scroll */
+  align-items: flex-start; 
+  overflow-x: hidden; 
+  overflow-y: auto;   
 }
 
 

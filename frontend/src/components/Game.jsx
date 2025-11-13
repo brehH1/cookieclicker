@@ -8,9 +8,12 @@ export default function Game({ player, onExit }) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const [prestigePoints, setPrestigePoints] = useState(
+    player.prestige_points || 0
+  );
+
   const username = player.username;
 
-  // Keep stable refs for autosave
   const lastSent = useRef(cookies);
   const cookiesRef = useRef(cookies);
 
@@ -18,10 +21,13 @@ export default function Game({ player, onExit }) {
     cookiesRef.current = cookies;
   }, [cookies]);
 
-  // Calculate CPS from owned upgrades
-  const cps = upgrades
-    .filter(u => u.owned)
+  const prestigeMultiplier = 1 + prestigePoints * 0.1;
+
+  const baseCps = upgrades
+    .filter((u) => u.owned)
     .reduce((sum, u) => sum + (u.cps || 0), 0);
+
+  const totalCps = baseCps * prestigeMultiplier;
 
   const fetchLeaderboard = async () => {
     try {
@@ -42,45 +48,43 @@ export default function Game({ player, onExit }) {
   };
 
   const handleClick = () => {
-    setCookies(c => c + 1);
+    setCookies((c) => c + 1);
   };
 
   const handleBuyUpgrade = async (upgradeId) => {
     try {
       const res = await api.post("/buy-upgrade", {
         username,
-        upgrade_id: upgradeId
+        upgrade_id: upgradeId,
       });
 
       if (res.data.ok) {
         await fetchUpgrades();
         await fetchLeaderboard();
 
-        // Refresh cookies from backend (important!)
         const refreshed = await api.post("/auth/login", { username });
         const newCookies = refreshed.data.player.cookies;
 
         setCookies(newCookies);
         cookiesRef.current = newCookies;
         lastSent.current = newCookies;
+        setPrestigePoints(refreshed.data.player.prestige_points || 0);
       }
     } catch (err) {
       alert(err.response?.data?.error || "Osto epäonnistui");
     }
   };
 
-  // AUTO-CPS interval
   useEffect(() => {
     const interval = setInterval(() => {
-      if (cps > 0) {
-        setCookies(c => c + cps);
+      if (totalCps > 0) {
+        setCookies((c) => c + totalCps);
       }
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [cps]);
+  }, [totalCps]);
 
-  // AUTOSAVE interval
   useEffect(() => {
     const interval = setInterval(async () => {
       const current = cookiesRef.current;
@@ -91,7 +95,7 @@ export default function Game({ player, onExit }) {
 
           await api.post("/update", {
             username,
-            cookies: current
+            cookies: current,
           });
 
           lastSent.current = current;
@@ -107,19 +111,49 @@ export default function Game({ player, onExit }) {
     return () => clearInterval(interval);
   }, [username]);
 
-  // INITIAL LOAD
   useEffect(() => {
     (async () => {
       await Promise.all([fetchLeaderboard(), fetchUpgrades()]);
 
-      // Make sure our cookies match backend login result (offline baked in)
       setCookies(player.cookies);
       cookiesRef.current = player.cookies;
       lastSent.current = player.cookies;
+      setPrestigePoints(player.prestige_points || 0);
 
       setLoading(false);
     })();
   }, []);
+
+  const handlePrestige = async () => {
+    try {
+      const res = await api.post("/prestige", { username });
+
+      if (!res.data.ok) {
+        alert(res.data.error || "Prestige epäonnistui");
+        return;
+      }
+
+      alert(
+        `⭐ Prestige suoritettu!\n\n` +
+          `Sait ${res.data.gained} prestige-pistettä.\n` +
+          `Yhteensä: ${res.data.prestige_points}\n` +
+          `Uusi kerroin: x${res.data.multiplier.toFixed(1)}`
+      );
+
+      setCookies(0);
+      cookiesRef.current = 0;
+      lastSent.current = 0;
+      setPrestigePoints(res.data.prestige_points);
+      setUpgrades([]);
+      await fetchUpgrades();
+      await fetchLeaderboard();
+    } catch (err) {
+      alert("Prestige epäonnistui");
+      console.error(err);
+    }
+  };
+
+  const PRESTIGE_COST = 1000; 
 
   if (loading) {
     return <p style={{ textAlign: "center" }}>Ladataan peliä...</p>;
@@ -129,7 +163,13 @@ export default function Game({ player, onExit }) {
     <div className="card" style={{ textAlign: "center" }}>
       <h2>Tervetuloa, {username}!</h2>
       <h3>Keksit: {cookies}</h3>
-      <h4>CPS: {cps}</h4>
+      <h4>
+        CPS: {totalCps}{" "}
+        <span style={{ fontSize: "0.9em", opacity: 0.8 }}>
+          (base {baseCps}, prestige x{prestigeMultiplier.toFixed(1)})
+        </span>
+      </h4>
+      <h4>Prestige-pisteet: {prestigePoints}</h4>
 
       <button
         className="cookie-button"
@@ -160,7 +200,22 @@ export default function Game({ player, onExit }) {
         </button>
       </div>
 
-      {/* Leaderboard */}
+      <div style={{ marginTop: "1rem" }}>
+        <button
+          onClick={handlePrestige}
+          disabled={cookies < PRESTIGE_COST}
+          style={{
+            padding: "0.5rem 1rem",
+            backgroundColor: cookies >= PRESTIGE_COST ? "#ffbb00" : "#777",
+            border: "none",
+            borderRadius: "8px",
+            cursor: cookies >= PRESTIGE_COST ? "pointer" : "default",
+          }}
+        >
+          ⭐ Prestige (vaatii {PRESTIGE_COST} keksiä)
+        </button>
+      </div>
+
       <div style={{ marginTop: "2rem" }}>
         <h3>Tulokset</h3>
         {leaderboard.length > 0 ? (
@@ -185,10 +240,8 @@ export default function Game({ player, onExit }) {
         )}
       </div>
 
-      {/* Upgrades */}
       <div style={{ marginTop: "2rem" }}>
         <h3>Päivitykset</h3>
-
         {upgrades.length > 0 ? (
           <ul style={{ listStyle: "none", padding: 0 }}>
             {upgrades.map((u) => (

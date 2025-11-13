@@ -29,7 +29,6 @@ export default function Login({ onLogin }) {
         return;
       }
 
-      // SHOW OFFLINE POPUP
       if (res.data.offline_gain > 0) {
         alert(
           `🍪 Tervetuloa takaisin!\n\n` +
@@ -38,7 +37,6 @@ export default function Login({ onLogin }) {
         );
       }
 
-      // PASS CORRECT PLAYER AND OFFLINE DATA FOR GAME.JSX
       onLogin({
         ...res.data.player,
         cookies: res.data.player.cookies,

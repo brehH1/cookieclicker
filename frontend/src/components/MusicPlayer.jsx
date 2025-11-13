@@ -19,6 +19,6 @@ export default function MusicPlayer() {
     };
   }, []);
 
-  // Component doesn't render anything visible
+
   return null;
 }

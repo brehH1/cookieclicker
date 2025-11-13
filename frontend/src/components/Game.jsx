@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import api from "../api";
 import MusicPlayer from "./MusicPlayer"; // ✅ Added
 
@@ -11,32 +11,41 @@ export default function Game({ player, onExit }) {
 
   const username = player.username;
 
-  // --- Hae leaderboard ---
+  // --- refs to avoid stale closures ---
+  const lastSent = useRef(cookies);
+  const cookiesRef = useRef(cookies);
+
+  // Keep cookiesRef always updated to latest value
+  useEffect(() => {
+    cookiesRef.current = cookies;
+  }, [cookies]);
+
+  // Total CPS from owned upgrades
+  const cps = upgrades
+    .filter((u) => u.owned)
+    .reduce((sum, u) => sum + (u.cps || 0), 0);
+
+  // --- Fetch leaderboard ---
   const fetchLeaderboard = async () => {
     try {
       const res = await api.get("/leaderboard");
-      if (Array.isArray(res.data)) {
-        setLeaderboard(res.data);
-      } else {
-        console.warn("⚠️ Unexpected leaderboard format:", res.data);
-      }
+      if (Array.isArray(res.data)) setLeaderboard(res.data);
     } catch (err) {
-      console.error("❌ Leaderboard fetch failed:", err);
+      console.error("Leaderboard fetch failed:", err);
     }
   };
 
-  // --- Hae päivitykset ---
+  // --- Fetch upgrades ---
   const fetchUpgrades = async () => {
     try {
       const res = await api.get("/upgrades", { params: { username } });
-      if (res.data.ok) {
-        setUpgrades(res.data.upgrades);
-      }
+      if (res.data.ok) setUpgrades(res.data.upgrades);
     } catch (err) {
-      console.error("❌ Upgrades fetch failed:", err);
+      console.error("Upgrades fetch failed:", err);
     }
   };
 
+<<<<<<< Updated upstream
   // --- Klikkauslogiikka ---
   const handleClick = async () => {
     const newCount = cookies + 1;
@@ -50,25 +59,76 @@ export default function Game({ player, onExit }) {
     } finally {
       setSaving(false);
     }
+=======
+  // --- Manual clicking ---
+  const handleClick = () => {
+    setCookies((c) => c + 1);
+>>>>>>> Stashed changes
   };
 
-  // --- Päivityksen osto ---
+  // --- Buy upgrade ---
   const handleBuyUpgrade = async (upgradeId) => {
     try {
-      const res = await api.post("/buy-upgrade", { username, upgrade_id: upgradeId });
+      const res = await api.post("/buy-upgrade", {
+        username,
+        upgrade_id: upgradeId,
+      });
+
       if (res.data.ok) {
-        alert("✅ Päivitys ostettu!");
+        // Refresh upgrades and leaderboard
         await fetchUpgrades();
         await fetchLeaderboard();
+
+        // Refresh cookies from backend
         const refreshed = await api.post("/auth/login", { username });
         setCookies(refreshed.data.player.cookies);
+        lastSent.current = refreshed.data.player.cookies;
       }
     } catch (err) {
-      alert(err.response?.data?.error || "❌ Osto epäonnistui");
+      alert(err.response?.data?.error || "Osto epäonnistui");
     }
   };
 
-  // --- Alustus ---
+  // --- AUTO CPS: add cookies every second ---
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (cps > 0) {
+        setCookies((c) => c + cps);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [cps]);
+
+  // --- SAVE TO BACKEND EVERY 3 SECONDS (FIXED) ---
+  useEffect(() => {
+    const interval = setInterval(async () => {
+      const currentCookies = cookiesRef.current;
+
+      if (currentCookies !== lastSent.current) {
+        try {
+          setSaving(true);
+
+          await api.post("/update", {
+            username,
+            cookies: currentCookies,
+          });
+
+          lastSent.current = currentCookies;
+
+          fetchLeaderboard();
+        } catch (err) {
+          console.error("Failed to update cookies:", err);
+        } finally {
+          setSaving(false);
+        }
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [username]);
+
+  // --- Initial load ---
   useEffect(() => {
     (async () => {
       await Promise.all([fetchLeaderboard(), fetchUpgrades()]);
@@ -87,6 +147,7 @@ export default function Game({ player, onExit }) {
 
       <h2>Tervetuloa, {username}!</h2>
       <h3>Keksit: {cookies}</h3>
+      <h4>CPS: {cps}</h4>
 
       <button
         className="cookie-button"
@@ -117,6 +178,7 @@ export default function Game({ player, onExit }) {
         </button>
       </div>
 
+      {/* Leaderboard */}
       <div style={{ marginTop: "2rem" }}>
         <h3>Tulokset</h3>
         {leaderboard.length > 0 ? (
@@ -141,6 +203,7 @@ export default function Game({ player, onExit }) {
         )}
       </div>
 
+      {/* Upgrades */}
       <div style={{ marginTop: "2rem" }}>
         <h3>Päivitykset</h3>
         {upgrades.length > 0 ? (
@@ -159,7 +222,8 @@ export default function Game({ player, onExit }) {
                       : "#ccc",
                   }}
                 >
-                  {u.name} — Hinta: {u.cost} {u.owned ? "✅" : ""}
+                  {u.name} — Hinta: {u.cost} — +{u.cps} CPS{" "}
+                  {u.owned ? "✅" : ""}
                 </button>
               </li>
             ))}

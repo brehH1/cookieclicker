@@ -10,21 +10,19 @@ export default function Game({ player, onExit }) {
 
   const username = player.username;
 
-  // --- refs to avoid stale closures ---
+  // Keep stable refs for autosave
   const lastSent = useRef(cookies);
   const cookiesRef = useRef(cookies);
 
-  // Keep cookiesRef always updated to latest value
   useEffect(() => {
     cookiesRef.current = cookies;
   }, [cookies]);
 
-  // Total CPS from owned upgrades
+  // Calculate CPS from owned upgrades
   const cps = upgrades
-    .filter((u) => u.owned)
+    .filter(u => u.owned)
     .reduce((sum, u) => sum + (u.cps || 0), 0);
 
-  // --- Fetch leaderboard ---
   const fetchLeaderboard = async () => {
     try {
       const res = await api.get("/leaderboard");
@@ -34,7 +32,6 @@ export default function Game({ player, onExit }) {
     }
   };
 
-  // --- Fetch upgrades ---
   const fetchUpgrades = async () => {
     try {
       const res = await api.get("/upgrades", { params: { username } });
@@ -44,64 +41,63 @@ export default function Game({ player, onExit }) {
     }
   };
 
-  // --- Manual clicking ---
   const handleClick = () => {
-    setCookies((c) => c + 1);
+    setCookies(c => c + 1);
   };
 
-  // --- Buy upgrade ---
   const handleBuyUpgrade = async (upgradeId) => {
     try {
       const res = await api.post("/buy-upgrade", {
         username,
-        upgrade_id: upgradeId,
+        upgrade_id: upgradeId
       });
 
       if (res.data.ok) {
-        // Refresh upgrades and leaderboard
         await fetchUpgrades();
         await fetchLeaderboard();
 
-        // Refresh cookies from backend
+        // Refresh cookies from backend (important!)
         const refreshed = await api.post("/auth/login", { username });
-        setCookies(refreshed.data.player.cookies);
-        lastSent.current = refreshed.data.player.cookies;
+        const newCookies = refreshed.data.player.cookies;
+
+        setCookies(newCookies);
+        cookiesRef.current = newCookies;
+        lastSent.current = newCookies;
       }
     } catch (err) {
       alert(err.response?.data?.error || "Osto epäonnistui");
     }
   };
 
-  // --- AUTO CPS: add cookies every second ---
+  // AUTO-CPS interval
   useEffect(() => {
     const interval = setInterval(() => {
       if (cps > 0) {
-        setCookies((c) => c + cps);
+        setCookies(c => c + cps);
       }
     }, 1000);
 
     return () => clearInterval(interval);
   }, [cps]);
 
-  // --- SAVE TO BACKEND EVERY 3 SECONDS (FIXED) ---
+  // AUTOSAVE interval
   useEffect(() => {
     const interval = setInterval(async () => {
-      const currentCookies = cookiesRef.current;
+      const current = cookiesRef.current;
 
-      if (currentCookies !== lastSent.current) {
+      if (current !== lastSent.current) {
         try {
           setSaving(true);
 
           await api.post("/update", {
             username,
-            cookies: currentCookies,
+            cookies: current
           });
 
-          lastSent.current = currentCookies;
-
+          lastSent.current = current;
           fetchLeaderboard();
         } catch (err) {
-          console.error("Failed to update cookies:", err);
+          console.error("Save failed:", err);
         } finally {
           setSaving(false);
         }
@@ -111,10 +107,16 @@ export default function Game({ player, onExit }) {
     return () => clearInterval(interval);
   }, [username]);
 
-  // --- Initial load ---
+  // INITIAL LOAD
   useEffect(() => {
     (async () => {
       await Promise.all([fetchLeaderboard(), fetchUpgrades()]);
+
+      // Make sure our cookies match backend login result (offline baked in)
+      setCookies(player.cookies);
+      cookiesRef.current = player.cookies;
+      lastSent.current = player.cookies;
+
       setLoading(false);
     })();
   }, []);
@@ -186,6 +188,7 @@ export default function Game({ player, onExit }) {
       {/* Upgrades */}
       <div style={{ marginTop: "2rem" }}>
         <h3>Päivitykset</h3>
+
         {upgrades.length > 0 ? (
           <ul style={{ listStyle: "none", padding: 0 }}>
             {upgrades.map((u) => (

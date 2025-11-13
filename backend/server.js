@@ -8,75 +8,134 @@ const PORT = process.env.PORT || 3001;
 app.use(cors({ origin: "*" }));
 app.use(express.json());
 
-// LOGIN --------------------------------------------------
+// -------------------- LOGIN (offline progress) --------------------
 app.post("/api/auth/login", async (req, res) => {
   const { username } = req.body;
-  if (!username) return res.status(400).json({ error: "Username required" });
+
+  if (!username) {
+    return res.status(400).json({ error: "Username required" });
+  }
 
   try {
-    const { data: existing } = await supabase
+    // Fetch player
+    const { data: player } = await supabase
       .from("players")
       .select("*")
       .eq("username", username)
       .single();
 
-    if (existing) return res.json({ ok: true, player: existing });
+    if (!player) {
+      const { data: created } = await supabase
+        .from("players")
+        .insert({
+          username,
+          cookies: 0,
+          last_update: new Date()
+        })
+        .select()
+        .single();
 
-    const { data: inserted, error } = await supabase
+      return res.json({
+        ok: true,
+        player: created,
+        offline_gain: 0,
+        offline_seconds: 0
+      });
+    }
+
+    // Fetch CPS upgrades
+    const { data: owned } = await supabase
+      .from("player_upgrades")
+      .select("upgrade_id")
+      .eq("username", username);
+
+    const ownedIds = owned.map(o => o.upgrade_id);
+
+    const { data: allUpgrades } = await supabase
+      .from("upgrades")
+      .select("*");
+
+    const cps = allUpgrades
+      .filter(u => ownedIds.includes(u.id))
+      .reduce((sum, u) => sum + (u.cps || 0), 0);
+
+    // Offline time
+    const last = new Date(player.last_update);
+    const now = new Date();
+
+    const seconds = Math.floor((now - last) / 1000);
+    const offlineGain = cps * seconds;
+    const newCookies = player.cookies + offlineGain;
+
+    // Save new state
+    await supabase
       .from("players")
-      .insert({ username, cookies: 0 })
-      .select()
-      .single();
+      .update({
+        cookies: newCookies,
+        last_update: now
+      })
+      .eq("username", username);
 
-    if (error) throw error;
-    return res.json({ ok: true, player: inserted });
+    // Return CORRECT updated player
+    return res.json({
+      ok: true,
+      player: {
+        id: player.id,
+        username: player.username,
+        cookies: newCookies,
+        last_update: now
+      },
+      offline_gain: offlineGain,
+      offline_seconds: seconds
+    });
+
   } catch (err) {
-    console.error("Login failed:", err.message);
+    console.error(err);
     return res.status(500).json({ error: "Login failed" });
   }
 });
 
-// BATCHED SCORE UPDATE -----------------------------------
+
+// -------------------- BATCH COOKIE UPDATE --------------------
 app.post("/api/update", async (req, res) => {
   const { username, cookies } = req.body;
 
   if (!username || typeof cookies !== "number") {
-    return res.status(400).json({ error: "Invalid request" });
+    return res.status(400).json({ error: "Invalid data" });
   }
 
   try {
-    const { error } = await supabase
+    await supabase
       .from("players")
-      .update({ cookies })
+      .update({
+        cookies,
+        last_update: new Date()
+      })
       .eq("username", username);
-
-    if (error) throw error;
 
     return res.json({ ok: true });
   } catch (err) {
-    console.error("Update failed:", err.message);
-    return res.status(500).json({ error: "Failed to update cookies" });
+    console.error("Update failed:", err);
+    return res.status(500).json({ error: "Update failed" });
   }
 });
 
-// LEADERBOARD --------------------------------------------
+// -------------------- LEADERBOARD --------------------
 app.get("/api/leaderboard", async (_req, res) => {
   try {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("players")
       .select("id, username, cookies")
       .order("cookies", { ascending: false })
       .limit(10);
 
-    if (error) throw error;
     return res.json(data || []);
-  } catch (err) {
-    console.error("Leaderboard error:", err.message);
+  } catch {
     return res.status(500).json({ error: "Failed to load leaderboard" });
   }
 });
 
-// UPGRADES ------------------------------------------------
+// -------------------- FETCH UPGRADES --------------------
 app.get("/api/upgrades", async (req, res) => {
   const { username } = req.query;
 
@@ -84,34 +143,32 @@ app.get("/api/upgrades", async (req, res) => {
     const { data: allUpgrades } = await supabase
       .from("upgrades")
       .select("*")
-      .order("cost", { ascending: true });
+      .order("cost");
 
     const { data: owned } = await supabase
       .from("player_upgrades")
       .select("upgrade_id")
       .eq("username", username);
 
-    const ownedIds = (owned || []).map((o) => o.upgrade_id);
+    const ownedIds = owned.map(o => o.upgrade_id);
 
-    const upgrades = (allUpgrades || []).map((u) => ({
+    const upgrades = allUpgrades.map(u => ({
       ...u,
-      owned: ownedIds.includes(u.id),
+      owned: ownedIds.includes(u.id)
     }));
 
-    return res.json({ ok: true, upgrades });
-  } catch (err) {
-    console.error("Fetch upgrades failed:", err.message);
-    return res.status(500).json({ error: "Failed to load upgrades" });
+    res.json({ ok: true, upgrades });
+  } catch {
+    res.status(500).json({ error: "Failed to load upgrades" });
   }
 });
 
-// BUY UPGRADE --------------------------------------------
+// -------------------- BUY UPGRADE --------------------
 app.post("/api/buy-upgrade", async (req, res) => {
   const { username, upgrade_id } = req.body;
 
-  if (!username || !upgrade_id) {
+  if (!username || !upgrade_id)
     return res.status(400).json({ error: "Invalid request" });
-  }
 
   try {
     const { data: upgrade } = await supabase
@@ -132,18 +189,22 @@ app.post("/api/buy-upgrade", async (req, res) => {
 
     await supabase
       .from("players")
-      .update({ cookies: player.cookies - upgrade.cost })
+      .update({
+        cookies: player.cookies - upgrade.cost,
+        last_update: new Date()
+      })
       .eq("username", username);
 
-    await supabase.from("player_upgrades").insert({ username, upgrade_id });
+    await supabase
+      .from("player_upgrades")
+      .insert({ username, upgrade_id });
 
     return res.json({ ok: true });
   } catch (err) {
-    console.error("Buy upgrade failed:", err.message);
-    return res.status(500).json({ error: "Failed to buy upgrade" });
+    return res.status(500).json({ error: "Upgrade failed" });
   }
 });
 
 app.listen(PORT, () =>
-  console.log(`🚀 Cookie Clicker backend running on port ${PORT}`)
+  console.log(`🚀 Backend running on port ${PORT}`)
 );

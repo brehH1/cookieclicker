@@ -255,3 +255,26 @@ li:hover {
 .login-form button:hover {
   transform: scale(1.05);
 }
+
+@keyframes floatUp {
+  0% { opacity: 1; transform: translateY(0px); }
+ 100% { opacity: 0; transform: translateY(-40px); }
+}
+
+.cookie-anim {
+  animation: cookieBounce 0.25s ease-out, cookieGlow 0.25s ease-out, cookieShake 0.25s ease-out;
+}
+
+@keyframes cookieBounce {
+  0% { transform: scale(1); }
+  40% { transform: scale(1); }
+  100% { transform: scale(1); }
+}
+
+@keyframes cookieGlow {
+  0% { filter: drop-shadow(0 0 0px rgba(255,255,0,0)); }
+  50% { filter: drop-shadow(0 0 18px rgba(255,255,0,0.7)); }
+  100% { filter: drop-shadow(0 0 0px rgba(255,255,0,0)); }
+}
+
+
